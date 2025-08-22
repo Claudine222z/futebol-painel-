@@ -65,6 +65,7 @@
         }
         .status-online { color: #4CAF50; }
         .status-offline { color: #f44336; }
+        .status-warning { color: #ff9800; }
         .refresh-btn {
             background: linear-gradient(45deg, #4CAF50, #45a049);
             color: white;
@@ -115,6 +116,22 @@
             border-radius: 8px;
             margin: 10px 0;
         }
+        .warning {
+            background: rgba(255, 152, 0, 0.2);
+            border: 1px solid #ff9800;
+            color: #ffe0b2;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+        }
+        .info {
+            background: rgba(33, 150, 243, 0.2);
+            border: 1px solid #2196f3;
+            color: #bbdefb;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+        }
         .footer {
             text-align: center;
             margin-top: 30px;
@@ -123,6 +140,23 @@
             border-radius: 10px;
             font-size: 0.9em;
             opacity: 0.8;
+        }
+        .connection-status {
+            text-align: center;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 8px;
+            font-weight: bold;
+        }
+        .status-connected {
+            background: rgba(76, 175, 80, 0.2);
+            border: 1px solid #4CAF50;
+            color: #4CAF50;
+        }
+        .status-disconnected {
+            background: rgba(244, 67, 54, 0.2);
+            border: 1px solid #f44336;
+            color: #f44336;
         }
     </style>
 </head>
@@ -134,17 +168,22 @@
             <button class="refresh-btn" onclick="updateData()">🔄 Atualizar Dados</button>
         </div>
         
+        <!-- Status de Conexão -->
+        <div id="connection-status" class="connection-status status-disconnected">
+            🔌 Conectando ao servidor...
+        </div>
+        
         <div class="grid">
             <!-- Status do Sistema -->
             <div class="card">
                 <h3>🔌 Status do Sistema</h3>
                 <div class="stat">
                     <span>Status do Banco:</span>
-                    <span class="stat-value status-online" id="db-status">Conectado</span>
+                    <span class="stat-value status-offline" id="db-status">Desconectado</span>
                 </div>
                 <div class="stat">
                     <span>Última Atualização:</span>
-                    <span class="stat-value" id="last-update">Carregando...</span>
+                    <span class="stat-value" id="last-update">N/A</span>
                 </div>
                 <div class="stat">
                     <span>Partidas ao Vivo:</span>
@@ -213,7 +252,7 @@
             <div class="card">
                 <h3>⚽ Partidas ao Vivo</h3>
                 <div id="live-matches-list">
-                    <div class="loading">Carregando partidas ao vivo...</div>
+                    <div class="loading">Aguardando conexão...</div>
                 </div>
             </div>
             
@@ -221,7 +260,7 @@
             <div class="card">
                 <h3>📅 Últimas Partidas</h3>
                 <div id="recent-fixtures-list">
-                    <div class="loading">Carregando partidas recentes...</div>
+                    <div class="loading">Aguardando conexão...</div>
                 </div>
             </div>
         </div>
@@ -239,20 +278,33 @@
     <script>
         // Configuração da API (URL do servidor dashboard na VPS)
         const API_BASE = 'http://72.60.1.170:5000';
+        let connectionStatus = 'disconnected';
         
         // Função para atualizar dados
         async function updateData() {
             try {
+                // Atualiza status de conexão
+                updateConnectionStatus('connecting');
+                
                 // Atualiza estatísticas
-                const statsResponse = await fetch(`${API_BASE}/api/stats`);
+                const statsResponse = await fetch(`${API_BASE}/api/stats`, {
+                    method: 'GET',
+                    mode: 'cors',
+                    timeout: 5000
+                });
+                
+                if (!statsResponse.ok) {
+                    throw new Error(`HTTP ${statsResponse.status}`);
+                }
+                
                 const stats = await statsResponse.json();
                 
                 if (stats.error) {
-                    document.getElementById('db-status').textContent = 'Erro';
-                    document.getElementById('db-status').className = 'stat-value status-offline';
-                    showError('Erro na conexão com o banco de dados');
-                    return;
+                    throw new Error(stats.error);
                 }
+                
+                // Conexão bem-sucedida
+                updateConnectionStatus('connected');
                 
                 // Atualiza status
                 document.getElementById('db-status').textContent = stats.status === 'connected' ? 'Conectado' : 'Desconectado';
@@ -276,49 +328,88 @@
                 document.getElementById('predictions-count').textContent = stats.predictions_count || 0;
                 
                 // Atualiza partidas ao vivo
-                const liveResponse = await fetch(`${API_BASE}/api/live-matches`);
-                const liveMatches = await liveResponse.json();
-                
-                const liveList = document.getElementById('live-matches-list');
-                if (liveMatches.length === 0) {
-                    liveList.innerHTML = '<p>Nenhuma partida ao vivo no momento</p>';
-                } else {
-                    liveList.innerHTML = liveMatches.map(match => `
-                        <div class="fixture-item live-match">
-                            <strong>${match.team_home_name} vs ${match.team_away_name}</strong><br>
-                            <small>${match.status} - ${match.elapsed_time || 'Tempo não disponível'}</small>
-                        </div>
-                    `).join('');
+                try {
+                    const liveResponse = await fetch(`${API_BASE}/api/live-matches`);
+                    const liveMatches = await liveResponse.json();
+                    
+                    const liveList = document.getElementById('live-matches-list');
+                    if (liveMatches.length === 0) {
+                        liveList.innerHTML = '<p>Nenhuma partida ao vivo no momento</p>';
+                    } else {
+                        liveList.innerHTML = liveMatches.map(match => `
+                            <div class="fixture-item live-match">
+                                <strong>${match.team_home_name} vs ${match.team_away_name}</strong><br>
+                                <small>${match.status} - ${match.elapsed_time || 'Tempo não disponível'}</small>
+                            </div>
+                        `).join('');
+                    }
+                } catch (e) {
+                    document.getElementById('live-matches-list').innerHTML = '<p>Erro ao carregar partidas ao vivo</p>';
                 }
                 
                 // Atualiza partidas recentes
-                const recentResponse = await fetch(`${API_BASE}/api/recent-fixtures`);
-                const recentFixtures = await recentResponse.json();
-                
-                const recentList = document.getElementById('recent-fixtures-list');
-                if (recentFixtures.length === 0) {
-                    recentList.innerHTML = '<p>Nenhuma partida recente</p>';
-                } else {
-                    recentList.innerHTML = recentFixtures.map(fixture => `
-                        <div class="fixture-item">
-                            <strong>${fixture.team_home_name} vs ${fixture.team_away_name}</strong><br>
-                            <small>${fixture.status} - ${fixture.fixture_date || 'Data não disponível'}</small>
-                        </div>
-                    `).join('');
+                try {
+                    const recentResponse = await fetch(`${API_BASE}/api/recent-fixtures`);
+                    const recentFixtures = await recentResponse.json();
+                    
+                    const recentList = document.getElementById('recent-fixtures-list');
+                    if (recentFixtures.length === 0) {
+                        recentList.innerHTML = '<p>Nenhuma partida recente</p>';
+                    } else {
+                        recentList.innerHTML = recentFixtures.map(fixture => `
+                            <div class="fixture-item">
+                                <strong>${fixture.team_home_name} vs ${fixture.team_away_name}</strong><br>
+                                <small>${fixture.status} - ${fixture.fixture_date || 'Data não disponível'}</small>
+                            </div>
+                        `).join('');
+                    }
+                } catch (e) {
+                    document.getElementById('recent-fixtures-list').innerHTML = '<p>Erro ao carregar partidas recentes</p>';
                 }
-                
-                // Atualiza timestamp
-                document.getElementById('timestamp').textContent = new Date().toLocaleString('pt-BR');
                 
                 // Remove erros se existirem
                 clearErrors();
                 
             } catch (error) {
                 console.error('Erro ao atualizar dados:', error);
+                updateConnectionStatus('disconnected');
                 document.getElementById('db-status').textContent = 'Erro de Conexão';
                 document.getElementById('db-status').className = 'stat-value status-offline';
-                showError('Erro na conexão com o servidor. Verifique se o dashboard está rodando.');
+                showWarning('Sistema principal pode estar offline ou em manutenção. Tente novamente em alguns minutos.');
             }
+            
+            // Atualiza timestamp
+            document.getElementById('timestamp').textContent = new Date().toLocaleString('pt-BR');
+        }
+        
+        function updateConnectionStatus(status) {
+            const statusElement = document.getElementById('connection-status');
+            connectionStatus = status;
+            
+            switch(status) {
+                case 'connected':
+                    statusElement.className = 'connection-status status-connected';
+                    statusElement.textContent = '✅ Conectado ao servidor';
+                    break;
+                case 'connecting':
+                    statusElement.className = 'connection-status status-warning';
+                    statusElement.textContent = '🔄 Conectando...';
+                    break;
+                case 'disconnected':
+                    statusElement.className = 'connection-status status-disconnected';
+                    statusElement.textContent = '❌ Desconectado do servidor';
+                    break;
+            }
+        }
+        
+        function showWarning(message) {
+            const warningDiv = document.createElement('div');
+            warningDiv.className = 'warning';
+            warningDiv.innerHTML = `
+                <strong>⚠️ Aviso:</strong> ${message}<br>
+                <small>O sistema principal pode estar em manutenção ou temporariamente indisponível.</small>
+            `;
+            document.querySelector('.container').insertBefore(warningDiv, document.querySelector('.grid'));
         }
         
         function showError(message) {
@@ -329,7 +420,7 @@
         }
         
         function clearErrors() {
-            const errors = document.querySelectorAll('.error');
+            const errors = document.querySelectorAll('.error, .warning');
             errors.forEach(error => error.remove());
         }
         
