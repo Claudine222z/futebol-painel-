@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📊 Dashboard Football - Monitoramento</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: white;
+            min-height: 100vh;
+        }
+        .container { 
+            max-width: 1400px; 
+            margin: 0 auto; 
+            padding: 20px; 
+        }
+        .header { 
+            text-align: center; 
+            margin-bottom: 30px; 
+            padding: 20px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+        }
+        .header h1 { 
+            font-size: 2.5em; 
+            margin-bottom: 10px; 
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+        .header p { 
+            font-size: 1.2em; 
+            opacity: 0.9; 
+        }
+        .grid { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); 
+            gap: 20px; 
+            margin-bottom: 30px;
+        }
+        .card { 
+            background: rgba(255,255,255,0.1); 
+            padding: 20px; 
+            border-radius: 15px; 
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+        .card h3 { 
+            margin-bottom: 15px; 
+            color: #ffd700; 
+            font-size: 1.3em;
+        }
+        .stat { 
+            display: flex; 
+            justify-content: space-between; 
+            padding: 8px 0; 
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        .stat:last-child { border-bottom: none; }
+        .stat-value { 
+            font-weight: bold; 
+            color: #4CAF50; 
+        }
+        .status-online { color: #4CAF50; }
+        .status-offline { color: #f44336; }
+        .refresh-btn {
+            background: linear-gradient(45deg, #4CAF50, #45a049);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1em;
+            margin: 10px 0;
+            transition: all 0.3s ease;
+        }
+        .refresh-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+        .fixture-item {
+            background: rgba(255,255,255,0.05);
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 8px;
+            border-left: 4px solid #4CAF50;
+        }
+        .live-match {
+            border-left-color: #ff5722;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.7; }
+            100% { opacity: 1; }
+        }
+        .timestamp {
+            font-size: 0.8em;
+            opacity: 0.7;
+            text-align: center;
+            margin-top: 20px;
+        }
+        .loading {
+            text-align: center;
+            padding: 20px;
+            opacity: 0.7;
+        }
+        .error {
+            background: rgba(244, 67, 54, 0.2);
+            border: 1px solid #f44336;
+            color: #ffcdd2;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 30px;
+            padding: 20px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 10px;
+            font-size: 0.9em;
+            opacity: 0.8;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📊 Dashboard Football</h1>
+            <p>Monitoramento em Tempo Real do Sistema de Coleta</p>
+            <button class="refresh-btn" onclick="updateData()">🔄 Atualizar Dados</button>
+        </div>
+        
+        <div class="grid">
+            <!-- Status do Sistema -->
+            <div class="card">
+                <h3>🔌 Status do Sistema</h3>
+                <div class="stat">
+                    <span>Status do Banco:</span>
+                    <span class="stat-value status-online" id="db-status">Conectado</span>
+                </div>
+                <div class="stat">
+                    <span>Última Atualização:</span>
+                    <span class="stat-value" id="last-update">Carregando...</span>
+                </div>
+                <div class="stat">
+                    <span>Partidas ao Vivo:</span>
+                    <span class="stat-value" id="live-matches">0</span>
+                </div>
+                <div class="stat">
+                    <span>Partidas Hoje:</span>
+                    <span class="stat-value" id="matches-today">0</span>
+                </div>
+            </div>
+            
+            <!-- Estatísticas do Banco -->
+            <div class="card">
+                <h3>🗄️ Dados no Banco</h3>
+                <div class="stat">
+                    <span>Países:</span>
+                    <span class="stat-value" id="countries-count">0</span>
+                </div>
+                <div class="stat">
+                    <span>Ligas:</span>
+                    <span class="stat-value" id="leagues-count">0</span>
+                </div>
+                <div class="stat">
+                    <span>Temporadas:</span>
+                    <span class="stat-value" id="seasons-count">0</span>
+                </div>
+                <div class="stat">
+                    <span>Times:</span>
+                    <span class="stat-value" id="teams-count">0</span>
+                </div>
+                <div class="stat">
+                    <span>Estádios:</span>
+                    <span class="stat-value" id="venues-count">0</span>
+                </div>
+                <div class="stat">
+                    <span>Treinadores:</span>
+                    <span class="stat-value" id="coaches-count">0</span>
+                </div>
+                <div class="stat">
+                    <span>Jogadores:</span>
+                    <span class="stat-value" id="players-count">0</span>
+                </div>
+                <div class="stat">
+                    <span>Classificações:</span>
+                    <span class="stat-value" id="standings-count">0</span>
+                </div>
+                <div class="stat">
+                    <span>Partidas:</span>
+                    <span class="stat-value" id="fixtures-count">0</span>
+                </div>
+                <div class="stat">
+                    <span>Estatísticas:</span>
+                    <span class="stat-value" id="statistics-count">0</span>
+                </div>
+                <div class="stat">
+                    <span>Odds:</span>
+                    <span class="stat-value" id="odds-count">0</span>
+                </div>
+                <div class="stat">
+                    <span>Previsões:</span>
+                    <span class="stat-value" id="predictions-count">0</span>
+                </div>
+            </div>
+            
+            <!-- Partidas ao Vivo -->
+            <div class="card">
+                <h3>⚽ Partidas ao Vivo</h3>
+                <div id="live-matches-list">
+                    <div class="loading">Carregando partidas ao vivo...</div>
+                </div>
+            </div>
+            
+            <!-- Últimas Partidas -->
+            <div class="card">
+                <h3>📅 Últimas Partidas</h3>
+                <div id="recent-fixtures-list">
+                    <div class="loading">Carregando partidas recentes...</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="timestamp">
+            <p>🕐 Última atualização: <span id="timestamp">Carregando...</span></p>
+        </div>
+        
+        <div class="footer">
+            <p>🏆 Sistema de Coleta de Dados de Futebol</p>
+            <p>📊 Monitoramento em Tempo Real via GitHub Pages</p>
+        </div>
+    </div>
+
+    <script>
+        // Configuração da API (URL do servidor dashboard na VPS)
+        const API_BASE = 'http://72.60.1.170:5000';
+        
+        // Função para atualizar dados
+        async function updateData() {
+            try {
+                // Atualiza estatísticas
+                const statsResponse = await fetch(`${API_BASE}/api/stats`);
+                const stats = await statsResponse.json();
+                
+                if (stats.error) {
+                    document.getElementById('db-status').textContent = 'Erro';
+                    document.getElementById('db-status').className = 'stat-value status-offline';
+                    showError('Erro na conexão com o banco de dados');
+                    return;
+                }
+                
+                // Atualiza status
+                document.getElementById('db-status').textContent = stats.status === 'connected' ? 'Conectado' : 'Desconectado';
+                document.getElementById('db-status').className = stats.status === 'connected' ? 'stat-value status-online' : 'stat-value status-offline';
+                document.getElementById('last-update').textContent = stats.last_update || 'N/A';
+                document.getElementById('live-matches').textContent = stats.live_matches || 0;
+                document.getElementById('matches-today').textContent = stats.matches_today || 0;
+                
+                // Atualiza contadores
+                document.getElementById('countries-count').textContent = stats.countries_count || 0;
+                document.getElementById('leagues-count').textContent = stats.leagues_count || 0;
+                document.getElementById('seasons-count').textContent = stats.seasons_count || 0;
+                document.getElementById('teams-count').textContent = stats.teams_count || 0;
+                document.getElementById('venues-count').textContent = stats.venues_count || 0;
+                document.getElementById('coaches-count').textContent = stats.coaches_count || 0;
+                document.getElementById('players-count').textContent = stats.players_count || 0;
+                document.getElementById('standings-count').textContent = stats.standings_count || 0;
+                document.getElementById('fixtures-count').textContent = stats.fixtures_count || 0;
+                document.getElementById('statistics-count').textContent = stats.statistics_count || 0;
+                document.getElementById('odds-count').textContent = stats.odds_count || 0;
+                document.getElementById('predictions-count').textContent = stats.predictions_count || 0;
+                
+                // Atualiza partidas ao vivo
+                const liveResponse = await fetch(`${API_BASE}/api/live-matches`);
+                const liveMatches = await liveResponse.json();
+                
+                const liveList = document.getElementById('live-matches-list');
+                if (liveMatches.length === 0) {
+                    liveList.innerHTML = '<p>Nenhuma partida ao vivo no momento</p>';
+                } else {
+                    liveList.innerHTML = liveMatches.map(match => `
+                        <div class="fixture-item live-match">
+                            <strong>${match.team_home_name} vs ${match.team_away_name}</strong><br>
+                            <small>${match.status} - ${match.elapsed_time || 'Tempo não disponível'}</small>
+                        </div>
+                    `).join('');
+                }
+                
+                // Atualiza partidas recentes
+                const recentResponse = await fetch(`${API_BASE}/api/recent-fixtures`);
+                const recentFixtures = await recentResponse.json();
+                
+                const recentList = document.getElementById('recent-fixtures-list');
+                if (recentFixtures.length === 0) {
+                    recentList.innerHTML = '<p>Nenhuma partida recente</p>';
+                } else {
+                    recentList.innerHTML = recentFixtures.map(fixture => `
+                        <div class="fixture-item">
+                            <strong>${fixture.team_home_name} vs ${fixture.team_away_name}</strong><br>
+                            <small>${fixture.status} - ${fixture.fixture_date || 'Data não disponível'}</small>
+                        </div>
+                    `).join('');
+                }
+                
+                // Atualiza timestamp
+                document.getElementById('timestamp').textContent = new Date().toLocaleString('pt-BR');
+                
+                // Remove erros se existirem
+                clearErrors();
+                
+            } catch (error) {
+                console.error('Erro ao atualizar dados:', error);
+                document.getElementById('db-status').textContent = 'Erro de Conexão';
+                document.getElementById('db-status').className = 'stat-value status-offline';
+                showError('Erro na conexão com o servidor. Verifique se o dashboard está rodando.');
+            }
+        }
+        
+        function showError(message) {
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'error';
+            errorDiv.textContent = message;
+            document.querySelector('.container').insertBefore(errorDiv, document.querySelector('.grid'));
+        }
+        
+        function clearErrors() {
+            const errors = document.querySelectorAll('.error');
+            errors.forEach(error => error.remove());
+        }
+        
+        // Atualiza dados a cada 30 segundos
+        updateData();
+        setInterval(updateData, 30000);
+    </script>
+</body>
+</html>
